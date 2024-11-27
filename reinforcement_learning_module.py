@@ -1,5 +1,7 @@
 from tensorflow.python.client import device_lib
 from tensorflow.keras import layers
+# Training the agent with DQN
+#from stable_baseline3 import DQN 
 import gymnasium as gym
 #from gym import spaces
 import tensorflow as tf
@@ -8,9 +10,6 @@ import scanpy as sc
 import pandas as pd
 import numpy as np
 #import gym
-# Training the agent with DQN
-#from stable_baseline3 import DQN 
-
 
 
 
@@ -26,13 +25,12 @@ class LatentSpaceEnv(gym.Env):
         # Defining the total number of possible perturbations/actions
         self.action_space = gym.spaces.Discrete(len(action_df))
 
-        
         # The observation space is a 6-dimensional continuous space representing latent variables
         # Need to create an automated way to fill in the low and high values based on absolute max of latent embeddings
         self.observation_space = gym.spaces.Box(low=-7, high=7, shape=(6,), dtype=np.float32)
 
         # Initial state of the system, randomly initialized within the space
-        self.current_state = np.random.rand(6)
+        self.current_state = np.random.uniform(low=-7, high=7, size=(6,))
 
         # The target point, representing the desired position in latent space, e.g., a cluster center
         self.target_point = target_point
@@ -52,18 +50,19 @@ class LatentSpaceEnv(gym.Env):
     
         # Penalty for each step taken
         # Try different values for this
-        step_penalty = 0.1  
+        step_penalty = 0.5  
         
         # Reward for reaching the target
         reward = -distance_to_target - step_penalty  # Adding step penalty
         
-        # Stopping after a certain distance to taregt is reached
-        done = distance_to_target < 0.4
+        # Stopping after a certain distance to target is reached
+        # What is the best way to think about which distance to choose?
+        done = distance_to_target < 0.5
 
-        # 
+        # perhaps create more reward values based on how many steps were taken
         if done:
             if len(self.perturbations) <= 6:
-                reward += 10  # Bonus reward for reaching within 6 steps
+                reward += 30  # Bonus reward for reaching within 6 steps
             else:
                 reward += 1  # Smaller reward if it took more than 6 steps
     
@@ -101,7 +100,8 @@ class SimpleDQN:
         
         if np.random.uniform() < self.epsilon:
             action = np.random.choice(self.action_space.n)
-        
+
+        # Predicts which action results in the highest reward
         else:
             state = np.reshape(state, [1, self.observation_space.shape[0]])
             action_values = self.model.predict(state)
@@ -109,6 +109,7 @@ class SimpleDQN:
             
         return action
 
+    #@tf.function
     def learn(self, state, action, reward, next_state, done):
         
         state = np.reshape(state, [1, self.observation_space.shape[0]])
